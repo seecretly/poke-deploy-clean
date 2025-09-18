@@ -140,6 +140,8 @@ def health():
     # Check API keys
     api_keys = {
         'openai': bool(os.environ.get('OPENAI_API_KEY')),
+        'google_client_id': bool(os.environ.get('GOOGLE_CLIENT_ID')),
+        'google_client_secret': bool(os.environ.get('GOOGLE_CLIENT_SECRET')),
         'gmail': bool(os.environ.get('GMAIL_CREDENTIALS')),
         'google_calendar': bool(os.environ.get('GOOGLE_CALENDAR_CREDENTIALS'))
     }
@@ -171,8 +173,12 @@ def auth_web():
     # 3. Handle the callback
     # 4. Store the credentials
     
-    # For now, simulate the OAuth flow
-    google_auth_url = f"https://accounts.google.com/oauth/authorize?client_id=demo&redirect_uri=https://web-production-d8e63.up.railway.app/auth-callback&response_type=code&scope=https://www.googleapis.com/auth/gmail.readonly+https://www.googleapis.com/auth/calendar&access_type=offline&state={token}_{user_id}_{service}"
+    # Real Google OAuth credentials from environment variables
+    google_client_id = os.environ.get('GOOGLE_CLIENT_ID')
+    redirect_uri = "https://web-production-d8e63.up.railway.app/auth-callback"
+    
+    # Build real Google OAuth URL
+    google_auth_url = f"https://accounts.google.com/oauth/authorize?client_id={google_client_id}&redirect_uri={redirect_uri}&response_type=code&scope=https://www.googleapis.com/auth/gmail.readonly+https://www.googleapis.com/auth/calendar&access_type=offline&state={token}_{user_id}_{service}"
     
     return f"""
     <!DOCTYPE html>
@@ -233,10 +239,59 @@ def auth_callback():
     except:
         return jsonify({{'error': 'Invalid state parameter'}}), 400
     
-    # In a real implementation, this would:
-    # 1. Exchange code for access token
-    # 2. Store credentials in database
-    # 3. Update user's authentication status
+    # Real OAuth implementation using environment variables
+    google_client_id = os.environ.get('GOOGLE_CLIENT_ID')
+    google_client_secret = os.environ.get('GOOGLE_CLIENT_SECRET')
+    redirect_uri = "https://web-production-d8e63.up.railway.app/auth-callback"
+    
+    try:
+        # Exchange authorization code for tokens
+        import requests
+        token_response = requests.post('https://oauth2.googleapis.com/token', data={
+            'client_id': google_client_id,
+            'client_secret': google_client_secret,
+            'code': code,
+            'grant_type': 'authorization_code',
+            'redirect_uri': redirect_uri,
+        })
+        
+        if token_response.status_code != 200:
+            print(f"❌ Token exchange failed: {token_response.text}")
+            return f"""
+            <!DOCTYPE html>
+            <html>
+            <head><title>Authentication Failed</title></head>
+            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; text-align: center;">
+                <h1>❌ Authentication Failed</h1>
+                <p>Failed to exchange authorization code for tokens.</p>
+                <p>Please try again or contact support.</p>
+            </body>
+            </html>
+            """
+        
+        tokens = token_response.json()
+        access_token = tokens.get('access_token')
+        refresh_token = tokens.get('refresh_token')
+        
+        print(f"✅ OAuth successful for user {user_id}, service: {service}")
+        print(f"🔑 Access token received: {access_token[:20]}...")
+        
+        # In a production system, you would store these tokens in a database
+        # For now, we'll just log the success
+        
+    except Exception as e:
+        print(f"❌ OAuth error: {e}")
+        return f"""
+        <!DOCTYPE html>
+        <html>
+        <head><title>Authentication Error</title></head>
+        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; text-align: center;">
+            <h1>❌ Authentication Error</h1>
+            <p>Error: {str(e)}</p>
+            <p>Please try again or contact support.</p>
+        </body>
+        </html>
+        """
     
     return f"""
     <!DOCTYPE html>
