@@ -76,6 +76,21 @@ Analyze this task request and determine what needs to be done:
 Task: "{task_description}"
 User Context: {json.dumps(context, indent=2)}
 
+IMPORTANT: If the user is asking to "connect", "authenticate", "login", "access", or mentions "Gmail", "Google", "email account", "calendar" without a specific action, this is an AUTHENTICATION request.
+
+Examples of AUTHENTICATION requests:
+- "connect my Gmail"
+- "authenticate my Google account"
+- "I need access to my email"
+- "help me with email" (when no auth exists)
+- "connect to calendar"
+- "login to Google"
+
+Examples of other task types:
+- "send email to john@example.com" = email task
+- "schedule meeting at 2pm" = calendar task
+- "search my emails for project" = search task
+
 Determine:
 1. Task type (email, calendar, search, trigger, integration, authentication, other)
 2. Specific action needed
@@ -107,8 +122,48 @@ Respond in JSON format:
         )
         
         try:
-            return json.loads(response.choices[0].message.content)
+            analysis = json.loads(response.choices[0].message.content)
+            
+            # Fallback: If AI didn't detect authentication but keywords suggest it
+            auth_keywords = ["connect", "authenticate", "login", "access", "auth"]
+            service_keywords = ["gmail", "google", "email", "calendar"]
+            
+            task_lower = task_description.lower()
+            has_auth_keyword = any(keyword in task_lower for keyword in auth_keywords)
+            has_service_keyword = any(keyword in task_lower for keyword in service_keywords)
+            
+            if has_auth_keyword and has_service_keyword and analysis.get("task_type") != "authentication":
+                # Override AI decision - this is clearly authentication
+                analysis["task_type"] = "authentication"
+                analysis["action"] = "authenticate"
+                if "gmail" in task_lower or "email" in task_lower:
+                    analysis["parameters"]["service"] = "gmail"
+                elif "calendar" in task_lower:
+                    analysis["parameters"]["service"] = "calendar"
+                else:
+                    analysis["parameters"]["service"] = "google"
+            
+            return analysis
+            
         except json.JSONDecodeError:
+            # If JSON parsing fails, use keyword-based detection
+            auth_keywords = ["connect", "authenticate", "login", "access", "auth"]
+            service_keywords = ["gmail", "google", "email", "calendar"]
+            
+            task_lower = task_description.lower()
+            has_auth_keyword = any(keyword in task_lower for keyword in auth_keywords)
+            has_service_keyword = any(keyword in task_lower for keyword in service_keywords)
+            
+            if has_auth_keyword and has_service_keyword:
+                service = "gmail" if ("gmail" in task_lower or "email" in task_lower) else "calendar" if "calendar" in task_lower else "google"
+                return {
+                    "task_type": "authentication",
+                    "action": "authenticate",
+                    "parameters": {"service": service},
+                    "needs_confirmation": False,
+                    "confidence": 0.8
+                }
+            
             return {
                 "task_type": "other",
                 "action": "unknown",
