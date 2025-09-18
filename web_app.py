@@ -29,6 +29,10 @@ COMPLETE_POKE_PROMPT = load_complete_poke_prompt()
 app = Flask(__name__)
 app.secret_key = 'poke-real-secret-key-change-in-production'
 
+# Simple in-memory token storage for OAuth flow
+# In production, this would be stored in a database
+auth_tokens = {}
+
 # Initialize the real Poke system
 openai_api_key = os.environ.get('OPENAI_API_KEY', 'demo-key')
 
@@ -177,6 +181,16 @@ def auth_web():
     google_client_id = os.environ.get('GOOGLE_CLIENT_ID')
     redirect_uri = "https://web-production-d8e63.up.railway.app/auth-callback"
     
+    # Store the token for validation in callback
+    auth_tokens[token] = {
+        'user_id': user_id,
+        'service': service,
+        'timestamp': datetime.now().isoformat(),
+        'used': False
+    }
+    
+    print(f"🔑 Stored auth token: {token} for user: {user_id}")
+    
     # Build real Google OAuth URL
     google_auth_url = f"https://accounts.google.com/oauth/authorize?client_id={google_client_id}&redirect_uri={redirect_uri}&response_type=code&scope=https://www.googleapis.com/auth/gmail.readonly+https://www.googleapis.com/auth/calendar&access_type=offline&state={token}_{user_id}_{service}"
     
@@ -236,8 +250,55 @@ def auth_callback():
     # Parse state to get token, user_id, and service
     try:
         token, user_id, service = state.split('_', 2)
-    except:
-        return jsonify({{'error': 'Invalid state parameter'}}), 400
+        print(f"🔍 OAuth callback - Token: {token}, User: {user_id}, Service: {service}")
+    except Exception as e:
+        print(f"❌ State parsing error: {e}, State: {state}")
+        return f"""
+        <!DOCTYPE html>
+        <html>
+        <head><title>Authentication Failed</title></head>
+        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; text-align: center;">
+            <h1>❌ Authentication Failed</h1>
+            <p>Invalid state parameter format.</p>
+            <p>Please try the authentication process again.</p>
+        </body>
+        </html>
+        """
+    
+    # Validate token
+    if token not in auth_tokens:
+        print(f"❌ Token not found: {token}")
+        print(f"🔍 Available tokens: {list(auth_tokens.keys())}")
+        return f"""
+        <!DOCTYPE html>
+        <html>
+        <head><title>Authentication Failed</title></head>
+        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; text-align: center;">
+            <h1>❌ Authentication Token Mismatch</h1>
+            <p>The authentication token is invalid or has expired.</p>
+            <p>Please try the authentication process again from the beginning.</p>
+        </body>
+        </html>
+        """
+    
+    # Check if token was already used
+    if auth_tokens[token]['used']:
+        print(f"❌ Token already used: {token}")
+        return f"""
+        <!DOCTYPE html>
+        <html>
+        <head><title>Authentication Failed</title></head>
+        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; text-align: center;">
+            <h1>❌ Authentication Token Already Used</h1>
+            <p>This authentication token has already been used.</p>
+            <p>Please start a new authentication process.</p>
+        </body>
+        </html>
+        """
+    
+    # Mark token as used
+    auth_tokens[token]['used'] = True
+    print(f"✅ Token validated and marked as used: {token}")
     
     # Real OAuth implementation using environment variables
     google_client_id = os.environ.get('GOOGLE_CLIENT_ID')
@@ -275,6 +336,11 @@ def auth_callback():
         
         print(f"✅ OAuth successful for user {user_id}, service: {service}")
         print(f"🔑 Access token received: {access_token[:20]}...")
+        
+        # Clean up the auth token
+        if token in auth_tokens:
+            del auth_tokens[token]
+            print(f"🧹 Cleaned up auth token: {token}")
         
         # In a production system, you would store these tokens in a database
         # For now, we'll just log the success
