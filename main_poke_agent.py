@@ -64,6 +64,9 @@ class MainPokeAgent:
         # Determine if this needs delegation to execution agent
         needs_execution = self._should_delegate_to_execution_agent(message)
         
+        # Debug logging
+        print(f"🔍 DEBUG: Message='{message}', Needs execution={needs_execution}")
+        
         if needs_execution:
             # Delegate to execution agent
             execution_result = await self.execution_agent.process_task(
@@ -73,7 +76,9 @@ class MainPokeAgent:
             )
             
             # Process the execution result
+            print(f"🔧 DEBUG: Execution result={execution_result}")
             response = await self._process_execution_result(execution_result, user_msg)
+            print(f"✅ DEBUG: Final response={response[:100]}...")
         else:
             # Handle conversational response
             response = await self._generate_conversational_response(user_msg, user_context)
