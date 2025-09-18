@@ -1,0 +1,15 @@
+poke_env/
+web_env/
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+.DS_Store
+*.log
+poke_memory.db
+proxy.log
+web_server.log
+web_server_updated.log
+package-lock.json
