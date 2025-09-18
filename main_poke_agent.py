@@ -64,9 +64,6 @@ class MainPokeAgent:
         # Determine if this needs delegation to execution agent
         needs_execution = self._should_delegate_to_execution_agent(message)
         
-        # Debug logging
-        print(f"🔍 DEBUG: Message='{message}', Needs execution={needs_execution}")
-        
         if needs_execution:
             # Delegate to execution agent
             execution_result = await self.execution_agent.process_task(
@@ -76,9 +73,7 @@ class MainPokeAgent:
             )
             
             # Process the execution result
-            print(f"🔧 DEBUG: Execution result={execution_result}")
             response = await self._process_execution_result(execution_result, user_msg)
-            print(f"✅ DEBUG: Final response={response[:100]}...")
         else:
             # Handle conversational response
             response = await self._generate_conversational_response(user_msg, user_context)
@@ -124,7 +119,10 @@ class MainPokeAgent:
         """
         Process the result from the execution agent and format for user.
         """
-        if execution_result.get("needs_confirmation"):
+        if execution_result.get("task_type") == "authentication":
+            # Handle authentication responses
+            return self._format_authentication_response(execution_result)
+        elif execution_result.get("needs_confirmation"):
             # Show draft for confirmation
             return self._format_draft_confirmation(execution_result)
         elif execution_result.get("task_completed"):
@@ -174,6 +172,32 @@ Does this look good to create? 👍 or 👎
             return f"✅ Calendar event created! {details}"
         else:
             return f"✅ {task_type.replace('_', ' ').title()} completed! {details}"
+    
+    def _format_authentication_response(self, execution_result: Dict) -> str:
+        """Format authentication response with auth link"""
+        if not execution_result.get("success"):
+            error = execution_result.get("error", "Authentication failed")
+            return f"❌ **Authentication Error**\n\n{error}"
+        
+        service = execution_result.get("service", "service")
+        auth_url = execution_result.get("auth_url", "")
+        
+        if not auth_url:
+            return f"❌ **Authentication Error**\n\nFailed to generate authentication link for {service}."
+        
+        return f"""🔐 **Authentication Required**
+
+To access your {service.title()}, I need you to authenticate first.
+
+👆 **Click here to connect:** {auth_url}
+
+Once you've authenticated, I'll have access to help you with:
+• Reading and managing emails
+• Scheduling calendar events  
+• Searching your data
+• Setting up automations
+
+Just click the link above to get started! 🚀"""
     
     def _format_information_response(self, execution_result: Dict) -> str:
         """Format information found by execution agent"""
