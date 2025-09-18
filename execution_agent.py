@@ -35,7 +35,7 @@ class ExecutionAgent:
         self.calendar_service = CalendarService()
         self.trigger_manager = TriggerManager()
         self.integration_manager = IntegrationManager()
-        self.openai_client = openai.OpenAI()
+        # OpenAI API key is set globally in main_poke_agent
         
     async def process_task(self, task_description: str, user_id: str, context: Dict) -> Dict:
         """
@@ -97,7 +97,7 @@ Respond in JSON format:
 }}
         """
         
-        response = await self.openai_client.chat.completions.create(
+        response = openai.ChatCompletion.create(
             model="gpt-4",
             messages=[{"role": "user", "content": analysis_prompt}],
             temperature=0.1

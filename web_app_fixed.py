@@ -31,20 +31,10 @@ app.secret_key = 'poke-real-secret-key-change-in-production'
 
 # Initialize the real Poke system
 openai_api_key = os.environ.get('OPENAI_API_KEY', 'demo-key')
-
-try:
-    print(f"🔧 Initializing Poke system...")
-    main_agent = MainPokeAgent(openai_api_key)
-    # Access the components from main_agent
-    execution_agent = main_agent.execution_agent
-    memory_manager = main_agent.memory_manager
-    print(f"✅ Poke system initialized successfully")
-except Exception as init_error:
-    print(f"❌ Failed to initialize Poke system: {init_error}")
-    # Create fallback objects
-    main_agent = None
-    execution_agent = None
-    memory_manager = None
+main_agent = MainPokeAgent(openai_api_key)
+# Access the components from main_agent
+execution_agent = main_agent.execution_agent
+memory_manager = main_agent.memory_manager
 
 @app.route('/')
 def index():
@@ -66,38 +56,20 @@ def chat():
         
         print(f"🧠 Real Poke processing: {message}")
         
-        # Check if system is initialized
-        if not main_agent:
-            return jsonify({
-                'response': f"""❌ **System Not Initialized**
-
-The Poke system failed to start properly. This usually means:
-1. Missing OpenAI API key
-2. Import/dependency issues
-3. Service initialization problems
-
-Please check the Railway logs for detailed error information.""",
-                'timestamp': str(uuid.uuid4())
-            })
-        
         # Use the REAL Poke system
         try:
             # Process with real Poke agents
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
             try:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                
                 poke_response = loop.run_until_complete(
                     main_agent.process_user_message(user_id, message)
                 )
                 print(f"✅ Real Poke response: {len(poke_response)} characters")
                 
-            except Exception as async_error:
-                print(f"❌ Async error: {async_error}")
-                raise async_error
             finally:
-                if 'loop' in locals():
-                    loop.close()
+                loop.close()
                 
         except Exception as e:
             print(f"❌ Real Poke error: {e}")
@@ -132,8 +104,8 @@ def health():
     services = {
         'main_agent': main_agent is not None,
         'execution_agent': execution_agent is not None,
-        'email_service': execution_agent.email_service is not None if execution_agent else False,
-        'calendar_service': execution_agent.calendar_service is not None if execution_agent else False,
+        'email_service': execution_agent.email_service is not None,
+        'calendar_service': execution_agent.calendar_service is not None,
         'memory_manager': memory_manager is not None
     }
     
@@ -186,10 +158,4 @@ if __name__ == '__main__':
     print(f"📧 Email Service: {'✅ Loaded' if execution_agent and execution_agent.email_service else '❌ Failed'}")
     print(f"📅 Calendar Service: {'✅ Loaded' if execution_agent and execution_agent.calendar_service else '❌ Failed'}")
     print(f"💭 Memory Manager: {'✅ Loaded' if memory_manager else '❌ Failed'}")
-    
-    if not main_agent:
-        print("⚠️  WARNING: System not fully initialized - running in fallback mode")
-    else:
-        print("✅ All systems operational!")
-    
     app.run(host='0.0.0.0', port=port, debug=True)

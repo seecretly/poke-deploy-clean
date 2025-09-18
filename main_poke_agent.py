@@ -37,7 +37,7 @@ class MainPokeAgent:
     """
     
     def __init__(self, openai_api_key: str):
-        self.openai_client = openai.OpenAI(api_key=openai_api_key)
+        openai.api_key = openai_api_key  # Set API key for v0.28.1
         self.execution_agent = ExecutionAgent()
         self.memory_manager = MemoryManager()
         self.message_router = MessageRouter()
@@ -202,8 +202,8 @@ Does this look good to create? 👍 or 👎
                     "content": msg.content
                 })
         
-        # Generate response
-        response = await self.openai_client.chat.completions.create(
+        # Generate response using v0.28.1 format (synchronous)
+        response = openai.ChatCompletion.create(
             model="gpt-4",
             messages=context_messages,
             temperature=0.7,
