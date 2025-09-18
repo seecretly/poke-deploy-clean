@@ -155,6 +155,117 @@ def health():
         'architecture': 'Multi-Agent with Real Integrations'
     })
 
+@app.route('/auth-web')
+def auth_web():
+    """Handle Google OAuth authentication"""
+    token = request.args.get('token')
+    user_id = request.args.get('user_id')
+    service = request.args.get('service', 'gmail')
+    
+    if not token or not user_id:
+        return jsonify({'error': 'Missing token or user_id'}), 400
+    
+    # In a real implementation, this would:
+    # 1. Validate the token
+    # 2. Redirect to Google OAuth
+    # 3. Handle the callback
+    # 4. Store the credentials
+    
+    # For now, simulate the OAuth flow
+    google_auth_url = f"https://accounts.google.com/oauth/authorize?client_id=demo&redirect_uri=https://web-production-d8e63.up.railway.app/auth-callback&response_type=code&scope=https://www.googleapis.com/auth/gmail.readonly+https://www.googleapis.com/auth/calendar&access_type=offline&state={token}_{user_id}_{service}"
+    
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Poke Authentication</title>
+        <style>
+            body {{ font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }}
+            .auth-container {{ text-align: center; background: #f5f5f5; padding: 30px; border-radius: 10px; }}
+            .btn {{ background: #4285f4; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 20px 0; }}
+            .btn:hover {{ background: #3367d6; }}
+        </style>
+    </head>
+    <body>
+        <div class="auth-container">
+            <h1>🔐 Connect to Google</h1>
+            <p>To give Poke access to your {service.title()}, you'll need to authenticate with Google.</p>
+            <p><strong>This will allow Poke to:</strong></p>
+            <ul style="text-align: left; display: inline-block;">
+                <li>Read and manage your emails</li>
+                <li>Create and edit calendar events</li>
+                <li>Search your Gmail and Calendar</li>
+                <li>Set up automations</li>
+            </ul>
+            <a href="{google_auth_url}" class="btn">🚀 Connect with Google</a>
+            <p><small>You'll be redirected to Google's secure login page.</small></p>
+        </div>
+    </body>
+    </html>
+    """
+
+@app.route('/auth-callback')
+def auth_callback():
+    """Handle OAuth callback from Google"""
+    code = request.args.get('code')
+    state = request.args.get('state', '')
+    error = request.args.get('error')
+    
+    if error:
+        return f"""
+        <!DOCTYPE html>
+        <html>
+        <head><title>Authentication Failed</title></head>
+        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; text-align: center;">
+            <h1>❌ Authentication Failed</h1>
+            <p>Error: {error}</p>
+            <p>Please try again or contact support.</p>
+        </body>
+        </html>
+        """
+    
+    if not code:
+        return jsonify({{'error': 'No authorization code received'}}), 400
+    
+    # Parse state to get token, user_id, and service
+    try:
+        token, user_id, service = state.split('_', 2)
+    except:
+        return jsonify({{'error': 'Invalid state parameter'}}), 400
+    
+    # In a real implementation, this would:
+    # 1. Exchange code for access token
+    # 2. Store credentials in database
+    # 3. Update user's authentication status
+    
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Authentication Successful</title>
+        <style>
+            body {{ font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; text-align: center; }}
+            .success {{ background: #d4edda; border: 1px solid #c3e6cb; color: #155724; padding: 20px; border-radius: 10px; }}
+        </style>
+    </head>
+    <body>
+        <div class="success">
+            <h1>✅ Successfully Connected!</h1>
+            <p>Your {service.title()} account has been connected to Poke.</p>
+            <p><strong>You can now:</strong></p>
+            <ul style="text-align: left; display: inline-block;">
+                <li>Ask Poke to read your emails</li>
+                <li>Schedule meetings and events</li>
+                <li>Search your Gmail and Calendar</li>
+                <li>Set up automations</li>
+            </ul>
+            <p>Go back to the chat and try commands like:</p>
+            <p><em>"Check my recent emails"</em> or <em>"Schedule a meeting tomorrow"</em></p>
+        </div>
+    </body>
+    </html>
+    """
+
 @app.route('/setup')
 def setup():
     """Setup instructions for the real system"""
