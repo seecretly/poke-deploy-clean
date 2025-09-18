@@ -122,6 +122,19 @@ Respond in JSON format:
         action = task_analysis.get("action", "")
         parameters = task_analysis.get("parameters", {})
         
+        # Check if user is authenticated for Gmail first
+        # In a real implementation, this would check stored credentials
+        # For now, we'll assume they need authentication
+        has_gmail_auth = await self._check_gmail_authentication(user_id)
+        
+        if not has_gmail_auth:
+            # Redirect to authentication
+            return await self._handle_authentication_task({
+                "task_type": "authentication",
+                "action": "authenticate", 
+                "parameters": {"service": "gmail"}
+            }, user_id)
+        
         if action == "send":
             # Compose and send email
             draft = {
@@ -176,6 +189,17 @@ Respond in JSON format:
         """Handle calendar-related tasks"""
         action = task_analysis.get("action", "")
         parameters = task_analysis.get("parameters", {})
+        
+        # Check if user is authenticated for Calendar first
+        has_calendar_auth = await self._check_calendar_authentication(user_id)
+        
+        if not has_calendar_auth:
+            # Redirect to authentication
+            return await self._handle_authentication_task({
+                "task_type": "authentication",
+                "action": "authenticate",
+                "parameters": {"service": "calendar"}
+            }, user_id)
         
         if action == "create":
             # Create calendar event
@@ -365,6 +389,22 @@ Respond in JSON format:
                 "error": f"Authentication not supported for service: {service}",
                 "task_type": "authentication"
             }
+    
+    async def _check_gmail_authentication(self, user_id: str) -> bool:
+        """Check if user has valid Gmail authentication"""
+        # In a real implementation, this would check stored OAuth tokens
+        # For educational purposes, we'll assume they need authentication
+        # This can be enhanced to check actual stored credentials
+        
+        # Simulate checking stored credentials
+        # Return False to always require authentication for demo
+        return False
+    
+    async def _check_calendar_authentication(self, user_id: str) -> bool:
+        """Check if user has valid Calendar authentication"""
+        # In a real implementation, this would check stored OAuth tokens
+        # For educational purposes, we'll assume they need authentication
+        return False
     
     async def execute_confirmed_action(self, confirmation_data: Dict, user_id: str) -> Dict:
         """
